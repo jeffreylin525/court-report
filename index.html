@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>開庭情形說明 PWA</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2643/2643509.png">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- html2canvas for image generation -->
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Custom Input Styling to mimic underscores */
+        .underscore-input {
+            border: none;
+            border-bottom: 1px solid #000;
+            background: transparent;
+            border-radius: 0;
+            padding: 2px 4px;
+            width: 100%;
+            outline: none;
+            transition: border-bottom-color 0.2s;
+        }
+        
+        .underscore-input:focus {
+            border-bottom: 2px solid #2563eb;
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        .paper-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            color: white;
+            font-size: 1.2rem;
+            flex-direction: column;
+        }
+        
+        /* Print Styles */
+        @media print {
+            body { background: white; }
+            .no-print { display: none; }
+            .paper-container { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Icons placeholder
+        const CopyIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        );
+        const RefreshIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"></path><path d="M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16"></path></svg>
+        );
+        const ShareIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        );
+        const DownloadIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        );
+
+        const App = () => {
+            // --- State Management ---
+            const [clientName, setClientName] = useState("");
+            const [courtDate, setCourtDate] = useState(new Date().toISOString().split('T')[0]);
+            const [selectedCourt, setSelectedCourt] = useState("高等法院民事庭");
+            const [attendeeType, setAttendeeType] = useState("");
+            
+            // Multiple lines inputs
+            const [hearingDetails, setHearingDetails] = useState(["", "", "", "", "", ""]);
+            const [judgeRequests, setJudgeRequests] = useState(["", "", ""]);
+            const [lawyerPrep, setLawyerPrep] = useState(["", "", ""]);
+            const [clientPrep, setClientPrep] = useState(["", "", ""]);
+
+            // Next Hearing Logic
+            const [nextHearingOption, setNextHearingOption] = useState({
+                option1: false, // Date picker
+                option2: false, // Wait for notice
+                option3: false  // Judgment
+            });
+            const [nextHearingDate, setNextHearingDate] = useState("");
+            const [judgmentDate, setJudgmentDate] = useState("");
+            
+            // UI Feedback
+            const [toast, setToast] = useState(null);
+            const [isGenerating, setIsGenerating] = useState(false);
+            
+            const paperRef = useRef(null);
+
+            // --- Data Lists ---
+            const courts = [
+                "高等法院民事庭", "台北地院民事庭", "士林地院民事庭", "新北地院民事庭", "基隆地院民事庭",
+                "高等法院刑事庭", "台北地院刑事庭", "士林地院刑事庭", "新北地院刑事庭", "基隆地院刑事庭",
+                "台北地檢署", "士林地檢署", "新北地檢署", "基隆地檢署", "其他"
+            ];
+
+            const attendeeOptions = ["對造律師", "對造本人", "證人"];
+
+            // --- Handlers ---
+            const handleLineChange = (setter, currentArray, index, value) => {
+                const newArray = [...currentArray];
+                newArray[index] = value;
+                setter(newArray);
+            };
+
+            const handleCheckboxChange = (option) => {
+                setNextHearingOption(prev => ({
+                    option1: option === 'option1' ? !prev.option1 : false,
+                    option2: option === 'option2' ? !prev.option2 : false,
+                    option3: option === 'option3' ? !prev.option3 : false,
+                }));
+            };
+
+            const generateTextReport = () => {
+                let report = `【${clientName || "______"} 案開庭情形說明】\n`;
+                report += `開庭日期：${courtDate}\n`;
+                report += `法院：${selectedCourt}\n`;
+                report += `出席人員：法庭人員及本律師以外，${attendeeType ? attendeeType : "無其他特殊人員"}\n\n`;
+                
+                report += `【開庭經過】\n`;
+                hearingDetails.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
+                if(hearingDetails.every(l => !l.trim())) report += "(無紀錄)\n";
+
+                report += `\n【法官要求補正事項】\n`;
+                judgeRequests.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
+                if(judgeRequests.every(l => !l.trim())) report += "(無)\n";
+
+                report += `\n【下次開庭時間】\n`;
+                if (nextHearingOption.option1) report += `預訂於：${nextHearingDate}\n`;
+                else if (nextHearingOption.option2) report += `等候法院通知。\n`;
+                else if (nextHearingOption.option3) report += `本件辯論終結，定於：${judgmentDate} 宣判。\n`;
+                else report += "(尚未勾選)\n";
+
+                report += `\n【本律師接續著手準備事項】\n`;
+                lawyerPrep.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
+                
+                report += `\n【建議委託人準備事項】\n`;
+                clientPrep.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
+
+                return report;
+            };
+
+            const copyToClipboard = () => {
+                const text = generateTextReport();
+                const textarea = document.createElement("textarea");
+                textarea.value = text;
+                textarea.style.position = "fixed";
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast("已複製文字報告！");
+                } catch (err) {
+                    showToast("複製失敗");
+                }
+                document.body.removeChild(textarea);
+            };
+
+            const handleShareImage = async () => {
+                if (!paperRef.current) return;
+                setIsGenerating(true);
+                
+                // Scroll to top to ensure clean capture
+                window.scrollTo(0, 0);
+
+                try {
+                    const canvas = await html2canvas(paperRef.current, {
+                        scale: 2, // Higher quality
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                    });
+
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) {
+                            showToast("圖片生成失敗");
+                            setIsGenerating(false);
+                            return;
+                        }
+
+                        const fileName = `開庭報告_${clientName || '未命名'}_${courtDate}.png`;
+                        const file = new File([blob], fileName, { type: 'image/png' });
+
+                        // Check if Web Share API is supported and can share files
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({
+                                    files: [file],
+                                    title: '開庭報告',
+                                    text: `客戶：${clientName} 的開庭報告`,
+                                });
+                                showToast("分享成功！");
+                            } catch (error) {
+                                if (error.name !== 'AbortError') {
+                                    console.error('Share failed:', error);
+                                    // Fallback to download if share fails (but not if user cancelled)
+                                    downloadImage(canvas, fileName);
+                                }
+                            }
+                        } else {
+                            // Fallback for desktop or unsupported browsers
+                            downloadImage(canvas, fileName);
+                            showToast("已下載圖片 (您的裝置不支援直接分享)");
+                        }
+                        setIsGenerating(false);
+                    }, 'image/png');
+
+                } catch (error) {
+                    console.error("Generation failed", error);
+                    showToast("生成失敗，請重試");
+                    setIsGenerating(false);
+                }
+            };
+
+            const downloadImage = (canvas, fileName) => {
+                const link = document.createElement('a');
+                link.download = fileName;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            };
+
+            const resetForm = () => {
+                if(confirm("確定要清空所有欄位嗎？")) {
+                    setClientName("");
+                    setCourtDate(new Date().toISOString().split('T')[0]);
+                    setSelectedCourt("高等法院民事庭");
+                    setAttendeeType("");
+                    setHearingDetails(["", "", "", "", "", ""]);
+                    setJudgeRequests(["", "", ""]);
+                    setLawyerPrep(["", "", ""]);
+                    setClientPrep(["", "", ""]);
+                    setNextHearingOption({ option1: false, option2: false, option3: false });
+                    setNextHearingDate("");
+                    setJudgmentDate("");
+                    showToast("表單已重置");
+                }
+            };
+
+            const showToast = (msg) => {
+                setToast(msg);
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            return (
+                <div className="min-h-screen pb-10">
+                    {/* Header */}
+                    <header className="bg-slate-800 text-white p-4 sticky top-0 z-20 shadow-md">
+                        <div className="max-w-3xl mx-auto flex justify-between items-center">
+                            <h1 className="text-lg font-bold flex items-center gap-2">
+                                <span className="text-2xl">⚖️</span> 律師開庭報告
+                            </h1>
+                            <div className="flex gap-2">
+                                <button onClick={resetForm} className="p-2 hover:bg-slate-700 rounded-full transition" title="重置">
+                                    <RefreshIcon />
+                                </button>
+                                <button onClick={copyToClipboard} className="p-2 bg-blue-600 hover:bg-blue-500 rounded-full transition shadow" title="複製純文字">
+                                    <CopyIcon />
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Main Paper Form */}
+                    <div ref={paperRef} className="max-w-3xl mx-auto mt-4 p-6 md:p-10 bg-white paper-container paper-shadow rounded-none md:rounded-lg mb-6">
+                        
+                        {/* 1. Title */}
+                        <div className="mb-6 flex flex-wrap items-end gap-2 text-xl font-bold border-b-2 border-slate-100 pb-4">
+                            <input 
+                                type="text" 
+                                placeholder="客戶名稱" 
+                                className="underscore-input text-center w-40 font-bold text-blue-800 placeholder-gray-300"
+                                value={clientName}
+                                onChange={(e) => setClientName(e.target.value)}
+                            />
+                            <span>案開庭情形說明</span>
+                        </div>
+
+                        {/* 2. Date */}
+                        <div className="mb-6 flex items-center gap-4">
+                            <label className="font-bold text-gray-700 whitespace-nowrap">開庭日期：</label>
+                            <input 
+                                type="date" 
+                                className="underscore-input w-auto text-lg text-gray-800"
+                                value={courtDate}
+                                onChange={(e) => setCourtDate(e.target.value)}
+                            />
+                        </div>
+
+                        {/* 3. Court */}
+                        <div className="mb-6">
+                            <label className="font-bold text-gray-700 block mb-2">法庭：</label>
+                            <select 
+                                className="w-full p-2 border border-gray-300 rounded bg-white text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={selectedCourt}
+                                onChange={(e) => setSelectedCourt(e.target.value)}
+                            >
+                                {courts.map(court => (
+                                    <option key={court} value={court}>{court}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* 4. Attendees */}
+                        <div className="mb-8">
+                            <label className="font-bold text-gray-700 block mb-2">
+                                法庭人員及本律師以外的出席人員：
+                            </label>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-gray-400 select-none">↳</span>
+                                <div className="flex-1 relative">
+                                    <select 
+                                        className="w-full p-2 border-b border-black bg-transparent outline-none appearance-none pr-8 cursor-pointer hover:bg-gray-50 transition"
+                                        value={attendeeType}
+                                        onChange={(e) => setAttendeeType(e.target.value)}
+                                    >
+                                        <option value="" disabled>請選擇人員...</option>
+                                        {attendeeOptions.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                        <option value="其他">其他 (請於備註說明)</option>
+                                    </select>
+                                    <div className="absolute right-0 top-0 bottom-0 flex items-center pointer-events-none text-gray-500">
+                                        ▼
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 5. Hearing Details */}
+                        <div className="mb-8">
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-blue-600 pl-2">開庭經過：</label>
+                            <div className="space-y-3">
+                                {hearingDetails.map((line, idx) => (
+                                    <div key={idx} className="flex gap-2 items-end">
+                                        <span className="text-gray-400 text-sm w-4 text-right">{idx + 1}.</span>
+                                        <input 
+                                            type="text" 
+                                            className="underscore-input text-gray-800"
+                                            value={line}
+                                            onChange={(e) => handleLineChange(setHearingDetails, hearingDetails, idx, e.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 6. Judge Requests */}
+                        <div className="mb-8">
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-red-500 pl-2">法官要求補正事項：</label>
+                            <div className="space-y-3">
+                                {judgeRequests.map((line, idx) => (
+                                    <div key={idx} className="flex gap-2 items-end">
+                                        <span className="text-gray-400 text-sm w-4 text-right">{idx + 1}.</span>
+                                        <input 
+                                            type="text" 
+                                            className="underscore-input text-gray-800"
+                                            value={line}
+                                            onChange={(e) => handleLineChange(setJudgeRequests, judgeRequests, idx, e.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 7. Next Hearing */}
+                        <div className="mb-8 p-4 bg-gray-50 rounded border border-gray-200">
+                            <label className="font-bold text-gray-700 block mb-3 text-lg border-l-4 border-green-600 pl-2">下次開庭時間：</label>
+                            
+                            {/* Option 1 */}
+                            <div className="flex items-center gap-3 mb-3">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                    checked={nextHearingOption.option1}
+                                    onChange={() => handleCheckboxChange('option1')}
+                                />
+                                <input 
+                                    type="date" 
+                                    className={`underscore-input w-40 ${!nextHearingOption.option1 && 'text-gray-400 bg-gray-100'}`}
+                                    disabled={!nextHearingOption.option1}
+                                    value={nextHearingDate}
+                                    onChange={(e) => setNextHearingDate(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Option 2 */}
+                            <div className="flex items-center gap-3 mb-3">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                    checked={nextHearingOption.option2}
+                                    onChange={() => handleCheckboxChange('option2')}
+                                />
+                                <span className={`text-lg ${nextHearingOption.option2 ? 'text-gray-800' : 'text-gray-400'}`}>
+                                    等候法院通知。
+                                </span>
+                            </div>
+
+                            {/* Option 3 */}
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                    checked={nextHearingOption.option3}
+                                    onChange={() => handleCheckboxChange('option3')}
+                                />
+                                <span className={`${nextHearingOption.option3 ? 'text-gray-800' : 'text-gray-400'}`}>
+                                    本件辯論終結，定於：
+                                </span>
+                                <input 
+                                    type="date" 
+                                    className={`underscore-input w-40 ${!nextHearingOption.option3 && 'text-gray-400 bg-gray-100'}`}
+                                    disabled={!nextHearingOption.option3}
+                                    value={judgmentDate}
+                                    onChange={(e) => setJudgmentDate(e.target.value)}
+                                />
+                                <span className={`${nextHearingOption.option3 ? 'text-gray-800' : 'text-gray-400'}`}>
+                                    宣判。
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* 8. Lawyer Prep */}
+                        <div className="mb-8">
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-indigo-500 pl-2">本律師接續著手準備事項：</label>
+                            <div className="space-y-3">
+                                {lawyerPrep.map((line, idx) => (
+                                    <div key={idx} className="flex gap-2 items-end">
+                                        <span className="text-gray-400 text-sm w-4 text-right">{idx + 1}.</span>
+                                        <input 
+                                            type="text" 
+                                            className="underscore-input text-gray-800"
+                                            value={line}
+                                            onChange={(e) => handleLineChange(setLawyerPrep, lawyerPrep, idx, e.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 9. Client Prep */}
+                        <div className="mb-8">
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-orange-500 pl-2">本律師建議委託人準備事項：</label>
+                            <div className="space-y-3">
+                                {clientPrep.map((line, idx) => (
+                                    <div key={idx} className="flex gap-2 items-end">
+                                        <span className="text-gray-400 text-sm w-4 text-right">{idx + 1}.</span>
+                                        <input 
+                                            type="text" 
+                                            className="underscore-input text-gray-800"
+                                            value={line}
+                                            onChange={(e) => handleLineChange(setClientPrep, clientPrep, idx, e.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="text-center text-gray-400 text-sm mt-10 no-print">
+                            律師開庭紀錄小幫手 &copy; 2025
+                        </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="max-w-3xl mx-auto px-4 pb-8 no-print">
+                        <button 
+                            onClick={handleShareImage}
+                            disabled={isGenerating}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 transition transform active:scale-95 disabled:bg-gray-400"
+                        >
+                            {isGenerating ? (
+                                <span className="animate-pulse">生成圖片中...</span>
+                            ) : (
+                                <>
+                                    <ShareIcon />
+                                    <span>生成圖片並分享 (Line)</span>
+                                </>
+                            )}
+                        </button>
+                        <p className="text-center text-gray-500 text-xs mt-3">
+                            點擊後將生成圖片，手機請選擇 Line 分享，電腦將自動下載。
+                        </p>
+                    </div>
+
+                    {/* Toast Notification */}
+                    {toast && (
+                        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce">
+                            {toast}
+                        </div>
+                    )}
+                    
+                    {/* Loading Overlay */}
+                    {isGenerating && (
+                        <div className="loading-overlay">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                            處理中...
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                .then((reg) => console.log('Service Worker Registered', reg.scope))
+                .catch((err) => console.log('Service Worker Failed', err));
+            });
+        }
+    </script>
+</body>
+</html>
