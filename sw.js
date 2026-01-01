@@ -1,4 +1,4 @@
-const CACHE_NAME = 'court-report-v2';
+const CACHE_NAME = 'court-report-v3';
 const urlsToCache = [
   './court_report_app.html',
   './manifest.json',
