@@ -1,6 +1,7 @@
 const CACHE_NAME = 'court-report-v3';
 const urlsToCache = [
-  './court_report_app.html',
+  './',
+  './index.html',  
   './manifest.json',
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
