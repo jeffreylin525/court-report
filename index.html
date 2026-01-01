@@ -227,6 +227,10 @@
                             const inputs = clonedDoc.querySelectorAll('input, select');
                             inputs.forEach(input => {
                                 input.style.fontFamily = "'Noto Sans TC', sans-serif"; 
+                                // 修正文字被切斷：加大底部內距與行高
+                                input.style.paddingBottom = '12px'; 
+                                input.style.lineHeight = '1.8';
+                                input.style.height = 'auto'; // 解除高度限制以容納文字
                             });
                         }
                     });
