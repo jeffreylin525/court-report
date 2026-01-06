@@ -162,7 +162,7 @@
                 let report = `【${clientName || "______"} 案開庭情形說明】\n`;
                 report += `開庭日期：${courtDate}\n`;
                 report += `法院/檢察署：${selectedCourt}\n`;
-                report += `出席人員：法庭人員及本律師以外，${attendeeType ? attendeeType : "無其他特殊人員"}\n\n`;
+                report += `出席人員：法庭人員及我方律師以外，${attendeeType ? attendeeType : "無其他特殊人員"}\n\n`;
                 
                 report += `【開庭經過】\n`;
                 hearingDetails.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
@@ -427,7 +427,7 @@
                             </div>
                         </div>
                         <div className="mb-8">
-                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-red-500 pl-2">法官要求補正事項：</label>
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-red-500 pl-2">法官/檢察官要求補正事項：</label>
                             <div className="space-y-3">
                                 {judgeRequests.map((line, idx) => (
                                     <div key={idx} className="flex gap-2 items-end">
@@ -467,7 +467,7 @@
                                     onChange={() => handleCheckboxChange('option2')}
                                 />
                                 <span className={`text-lg ${nextHearingOption.option2 ? 'text-gray-800' : 'text-gray-400'}`}>
-                                    等候法院通知。
+                                    等候法院/檢察署通知。
                                 </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -493,7 +493,7 @@
                             </div>
                         </div>
                         <div className="mb-8">
-                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-indigo-500 pl-2">本律師接續著手準備事項：</label>
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-indigo-500 pl-2">律師接續著手準備事項：</label>
                             <div className="space-y-3">
                                 {lawyerPrep.map((line, idx) => (
                                     <div key={idx} className="flex gap-2 items-end">
@@ -509,7 +509,7 @@
                             </div>
                         </div>
                         <div className="mb-8">
-                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-orange-500 pl-2">本律師建議委託人準備事項：</label>
+                            <label className="font-bold text-gray-700 block mb-2 text-lg border-l-4 border-orange-500 pl-2">律師建議委託人準備事項：</label>
                             <div className="space-y-3">
                                 {clientPrep.map((line, idx) => (
                                     <div key={idx} className="flex gap-2 items-end">
