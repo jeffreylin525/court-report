@@ -157,20 +157,20 @@
             const generateTextReport = () => {
                 let report = `【${clientName || "______"} 案開庭情形說明】\n`;
                 report += `開庭日期：${courtDate}\n`;
-                report += `法院：${selectedCourt}\n`;
+                report += `法院/檢察署：${selectedCourt}\n`;
                 report += `出席人員：法庭人員及本律師以外，${attendeeType ? attendeeType : "無其他特殊人員"}\n\n`;
                 
                 report += `【開庭經過】\n`;
                 hearingDetails.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
                 if(hearingDetails.every(l => !l.trim())) report += "(無紀錄)\n";
 
-                report += `\n【法官要求補正事項】\n`;
+                report += `\n【法官/檢察官要求補正事項】\n`;
                 judgeRequests.forEach(line => { if(line.trim()) report += `- ${line}\n`; });
                 if(judgeRequests.every(l => !l.trim())) report += "(無)\n";
 
                 report += `\n【下次開庭時間】\n`;
                 if (nextHearingOption.option1) report += `預訂於：${nextHearingDate}\n`;
-                else if (nextHearingOption.option2) report += `等候法院通知。\n`;
+                else if (nextHearingOption.option2) report += `等候法院/檢察署通知。\n`;
                 else if (nextHearingOption.option3) report += `本件辯論終結，定於：${judgmentDate} 宣判。\n`;
                 else report += "(尚未勾選)\n";
 
